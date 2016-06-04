@@ -64,6 +64,18 @@ def check_caps_kick(bot, room, nick, text):
   if threshold > 0.66:
     bot.client.send(iq_set_role(room, nick, 'none', "Don't write in ALL CAPS! Repeated caps abuse will lead to ban."))
 
+def check_nick_change_flood_control(bot, room, nick):
+  jid = bot.roster[room][nick][ROSTER_JID]
+  fc = flood_control.get(room+'/'+jid, 0)
+  fc *= 2
+  fc += 4
+  reason = 'No flooding!'
+  fclimit = 16
+  if fc > fclimit:
+    bot.client.send(iq_set_affiliation(room, target, 'outcast', reason))
+    fc = 0
+  flood_control[room+'/'+jid] = fc
+
 def check_long_nick_kick(bot, room, nick, role):
   if role == 'moderator': return
   if len(nick) > 30:
@@ -71,6 +83,7 @@ def check_long_nick_kick(bot, room, nick, role):
 
 def event_nick_changed(bot, (presence, room, nick, newnick)):
   check_long_nick_kick(bot, room, newnick, bot.roster[room][nick][ROSTER_ROLE])
+  check_nick_change_flood_control(bot, room, newnick)
 
 def event_joined(bot, (presence, room, nick, jid, role, affiliation, status, status_text)):
   check_long_nick_kick(bot, room, nick, role)
