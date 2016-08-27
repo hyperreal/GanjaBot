@@ -15,8 +15,9 @@
 #  You should have received a copy of the GNU General Public License
 #  along with Magnet2.  If not, see <http://www.gnu.org/licenses/>.
 #
-import time, random, md5
+import time, random, md5, xmpp
 from magnet_api import *
+from magnet_utils import *
 
 rndobjects = [
   "a USB cable", "a small boulder", "a pointed stick", "a shotgun", "dust",
@@ -123,6 +124,15 @@ rnddesc = [
   'close to getting banned'
 ]
 
+simple_fun_db = {}
+
+def randomrndobject(bot, room):
+  if 'custom_simple_fun' in bot.get_config(room, 'options') and \
+     room in simple_fun_db and 'rndobjects' in simple_fun_db[room] and len(simple_fun_db[room]['rndobjects']) > 0:
+    return random.choice(simple_fun_db[room]['rndobjects'])['rndobject']
+  else:
+    return random.choice(rndobjects)
+
 def command_hug(bot, room, nick, access_level, parameters, message):
   if parameters: target = parameters
   else: target = nick
@@ -151,7 +161,7 @@ def command_slap(bot, room, nick, access_level, parameters, message):
   if random.getrandbits(1):
     return '/me slaps %s with %s'%(target, random.choice(rndobjects))
   else:
-    return '/me repeatedly slaps %s with %s and then %s '%(target, random.choice(rndobjects), random.choice(rndobjects))
+    return '/me repeatedly slaps %s with %s and then %s '%(target, randomrndobject(bot, room), randomrndobject(bot, room))
 
 def command_gift(bot, room, nick, access_level, parameters, message):
   if parameters: target = parameters
@@ -159,9 +169,9 @@ def command_gift(bot, room, nick, access_level, parameters, message):
   if bot.self_nick[room].lower() in target.lower():
     target = nick
   if random.getrandbits(1):
-    return '/me opens a box and gives '+random.choice(rndobjects)+' to '+target
+    return '/me opens a box and gives '+randomrndobject(bot, room)+' to '+target
   else:
-    return '/me hands '+random.choice(rndobjects)+' to '+target
+    return '/me hands '+randomrndobject(bot, room)+' to '+target
 
 def command_stab(bot, room, nick, access_level, parameters, message):
   if parameters: target = parameters
@@ -171,21 +181,21 @@ def command_stab(bot, room, nick, access_level, parameters, message):
       return random.choice(["No.", "Never.", "Don't even think about it.", "I refuse."])
     else:
       target = nick
-  return '/me stabs %s with %s'%(target, random.choice(rndobjects))
+  return '/me stabs %s with %s'%(target, randomrndobject(bot, room))
 
 def command_poke(bot, room, nick, access_level, parameters, message):
   if parameters: target = parameters
   else: target = nick
   if bot.self_nick[room].lower() in target.lower():
     target = nick
-  return '/me pokes %s with %s'%(target, random.choice(rndobjects))
+  return '/me pokes %s with %s'%(target, randomrndobject(bot, room))
 
 def command_transform(bot, room, nick, access_level, parameters, message):
   if parameters: target = parameters
-  else: target = random.choice(rndobjects)
+  else: target = randomrndobject(bot, room)
   if bot.self_nick[room].lower() in target.lower():
     target = nick
-  return '/me transforms %s into %s'%(target, random.choice(rndobjects))
+  return '/me transforms %s into %s'%(target, randomrndobject(bot, room))
 
 def command_status(bot, room, nick, access_level, parameters, message):
   if parameters:
@@ -208,7 +218,11 @@ def command_status(bot, room, nick, access_level, parameters, message):
   hashname = md5.new('%s%d'%(initstring.encode('utf-8'), time.time()//3600)).hexdigest()
   hashnum = 0
   for c in hashname: hashnum += ord(c)
-  desc = rnddesc[hashnum % len(rnddesc)]
+  if 'custom_simple_fun' in bot.get_config(room, 'options') and \
+     room in simple_fun_db and 'rnddescs' in simple_fun_db[room] and len(simple_fun_db[room]['rnddescs']) > 0:
+    desc = simple_fun_db[room]['rnddescs'][hashnum % len(simple_fun_db[room]['rnddescs'])]['rnddesc']
+  else:
+    desc = rnddesc[hashnum % len(rnddesc)]
 
   if target == nick:
     response = 'You are %s. You are %s. You are also %s.'%(target, pos, desc)
@@ -272,7 +286,173 @@ def command_act(bot, room, nick, access_level, parameters, message):
   bot.send_room_message(room, '/me %s'%(parameters))
   return ''
 
+def getrndobject(bot, room, number):
+  if not room in simple_fun_db or not 'rndobjects' in simple_fun_db[room]: return
+  if number > len(simple_fun_db[room]['rndobjects']) or number < 1: return
+  return simple_fun_db[room]['rndobjects'][number-1]
+
+def addrndobject(bot, room, rndobjectic):
+  if not room in simple_fun_db: simple_fun_db[room] = {}
+  if not 'rndobjects' in simple_fun_db[room]: simple_fun_db[room]['rndobjects'] = []
+  if rndobjectic:
+    simple_fun_db[room]['rndobjects'].append(rndobjectic)
+
+def delrndobject(bot, room, number):
+  if not room in simple_fun_db or not 'rndobjects' in simple_fun_db[room]: return
+  if number > len(simple_fun_db[room]['rndobjects']) or number < 1: return
+  del simple_fun_db[room]['rndobjects'][number-1]
+
+def command_rndobject(bot, room, nick, access_level, parameters, message):
+  if not room in simple_fun_db or not 'rndobjects' in simple_fun_db[room] or len(simple_fun_db[room]['rndobjects']) == 0:
+    return 'No rndobjects added yet!'
+  try:
+    number = int(parameters)
+  except:
+    search = parameters.lower()
+    found = []
+    for i in xrange(len(simple_fun_db[room]['rndobjects'])):
+      if search in simple_fun_db[room]['rndobjects'][i]['rndobject'].lower():
+        found.append(i)
+    if len(found) == 0:
+      return "No such text found in rndobjects."
+    elif len(found) == 1:
+      number = found[0]+1
+    else:
+      return "Text found in rndobjects %s."%(', '.join(['#%d'%(x+1) for x in found]))
+
+  existent_rndobject = getrndobject(bot, room, number)
+  if not existent_rndobject:
+    return "There's no rndobject #%d, and there are %d rndobjects."%(number, len(simple_fun_db[room]['rndobjects']))
+
+  res = 'Rndobject #%d: %s'%(number, existent_rndobject['rndobject'])
+  if message.getType() != 'groupchat' and access_level >= LEVEL_ADMIN:
+    t = timeformat(time.time()-existent_rndobject['time'])
+    res = '%s\n(added by %s %s ago)'%(res, existent_rndobject['jid'], t)
+
+  return res
+
+def command_addrndobject(bot, room, nick, access_level, parameters, message):
+  if not parameters: return 'Expected rndobject text to add.'
+  rndobject = parameters
+
+  jid = bot.roster[room][nick][ROSTER_JID]
+  if jid != None: jid = xmpp.JID(jid).getStripped().lower()
+
+  rndobjectic = {
+    'rndobject': rndobject,
+    'jid': jid,
+    'time': time.time(),
+  }
+  addrndobject(bot, room, rndobjectic)
+  number = len(simple_fun_db[room]['rndobjects'])
+  return "Rndobject #%d added."%(number)
+
+def command_delrndobject(bot, room, nick, access_level, parameters, message):
+  try: number = int(parameters)
+  except: return 'Expected rndobject number to delete.'
+
+  jid = bot.roster[room][nick][ROSTER_JID]
+  if jid != None: jid = xmpp.JID(jid).getStripped().lower()
+
+  if not room in simple_fun_db or not 'rndobjects' in simple_fun_db[room] or len(simple_fun_db[room]['rndobjects']) == 0:
+    return 'No rndobjects added yet!'
+
+  existent_rndobject = getrndobject(bot, room, number)
+  if not existent_rndobject:
+    return "There's no rndobject #%d, and there is total of %d rndobjects."%(number, len(simple_fun_db[room]['rndobjects']))
+
+  if access_level < LEVEL_ADMIN:
+    if not jid or existent_rndobject['jid'] != jid or time.time() - existent_rndobject['time'] > 3600:
+      return "You can't delete rndobject #%d."%(number)
+
+  delrndobject(bot, room, number)
+  return "Rndobject #%d deleted."%(number)
+
+def getrnddesc(bot, room, number):
+  if not room in simple_fun_db or not 'rnddescs' in simple_fun_db[room]: return
+  if number > len(simple_fun_db[room]['rnddescs']) or number < 1: return
+  return simple_fun_db[room]['rnddescs'][number-1]
+
+def addrnddesc(bot, room, rnddescic):
+  if not room in simple_fun_db: simple_fun_db[room] = {}
+  if not 'rnddescs' in simple_fun_db[room]: simple_fun_db[room]['rnddescs'] = []
+  if rnddescic:
+    simple_fun_db[room]['rnddescs'].append(rnddescic)
+
+def delrnddesc(bot, room, number):
+  if not room in simple_fun_db or not 'rnddescs' in simple_fun_db[room]: return
+  if number > len(simple_fun_db[room]['rnddescs']) or number < 1: return
+  del simple_fun_db[room]['rnddescs'][number-1]
+
+def command_rnddesc(bot, room, nick, access_level, parameters, message):
+  if not room in simple_fun_db or not 'rnddescs' in simple_fun_db[room] or len(simple_fun_db[room]['rnddescs']) == 0:
+    return 'No rnddescs added yet!'
+  try:
+    number = int(parameters)
+  except:
+    search = parameters.lower()
+    found = []
+    for i in xrange(len(simple_fun_db[room]['rnddescs'])):
+      if search in simple_fun_db[room]['rnddescs'][i]['rnddesc'].lower():
+        found.append(i)
+    if len(found) == 0:
+      return "No such text found in rnddescs."
+    elif len(found) == 1:
+      number = found[0]+1
+    else:
+      return "Text found in rnddescs %s."%(', '.join(['#%d'%(x+1) for x in found]))
+
+  existent_rnddesc = getrnddesc(bot, room, number)
+  if not existent_rnddesc:
+    return "There's no rnddesc #%d, and there are %d rnddescs."%(number, len(simple_fun_db[room]['rnddescs']))
+
+  res = 'Rnddesc #%d: %s'%(number, existent_rnddesc['rnddesc'])
+  if message.getType() != 'groupchat' and access_level >= LEVEL_ADMIN:
+    t = timeformat(time.time()-existent_rnddesc['time'])
+    res = '%s\n(added by %s %s ago)'%(res, existent_rnddesc['jid'], t)
+
+  return res
+
+def command_addrnddesc(bot, room, nick, access_level, parameters, message):
+  if not parameters: return 'Expected rnddesc text to add.'
+  rnddesc = parameters
+
+  jid = bot.roster[room][nick][ROSTER_JID]
+  if jid != None: jid = xmpp.JID(jid).getStripped().lower()
+
+  rnddescic = {
+    'rnddesc': rnddesc,
+    'jid': jid,
+    'time': time.time(),
+  }
+  addrnddesc(bot, room, rnddescic)
+  number = len(simple_fun_db[room]['rnddescs'])
+  return "Rnddesc #%d added."%(number)
+
+def command_delrnddesc(bot, room, nick, access_level, parameters, message):
+  try: number = int(parameters)
+  except: return 'Expected rnddesc number to delete.'
+
+  jid = bot.roster[room][nick][ROSTER_JID]
+  if jid != None: jid = xmpp.JID(jid).getStripped().lower()
+
+  if not room in simple_fun_db or not 'rnddescs' in simple_fun_db[room] or len(simple_fun_db[room]['rnddescs']) == 0:
+    return 'No rnddescs added yet!'
+
+  existent_rnddesc = getrnddesc(bot, room, number)
+  if not existent_rnddesc:
+    return "There's no rnddesc #%d, and there is total of %d rnddescs."%(number, len(simple_fun_db[room]['rnddescs']))
+
+  if access_level < LEVEL_ADMIN:
+    if not jid or existent_rnddesc['jid'] != jid or time.time() - existent_rnddesc['time'] > 3600:
+      return "You can't delete rnddesc #%d."%(number)
+
+  delrnddesc(bot, room, number)
+  return "Rnddesc #%d deleted."%(number)
+
 def load(bot):
+  global simple_fun_db
+  simple_fun_db = bot.load_database('simple_fun') or {}
   bot.add_command('hug', command_hug, LEVEL_GUEST, 'simple_fun')
   bot.add_command('glomp', command_glomp, LEVEL_GUEST, 'simple_fun')
   bot.add_command('slap', command_slap, LEVEL_GUEST, 'simple_fun')
@@ -286,9 +466,15 @@ def load(bot):
   bot.add_command('flip', command_flip, LEVEL_GUEST, 'rpg')
   bot.add_command('say', command_say, LEVEL_ADMIN, 'say')
   bot.add_command('act', command_act, LEVEL_ADMIN, 'say')
+  bot.add_command('rndobject', command_rndobject, LEVEL_MEMBER, 'custom_simple_fun')
+  bot.add_command('addrndobject', command_addrndobject, LEVEL_MEMBER, 'custom_simple_fun')
+  bot.add_command('delrndobject', command_delrndobject, LEVEL_MEMBER, 'custom_simple_fun')
+  bot.add_command('rnddesc', command_rnddesc, LEVEL_MEMBER, 'custom_simple_fun')
+  bot.add_command('addrnddesc', command_addrnddesc, LEVEL_MEMBER, 'custom_simple_fun')
+  bot.add_command('delrnddesc', command_delrnddesc, LEVEL_MEMBER, 'custom_simple_fun')
 
 def unload(bot):
-  pass
+  bot.save_database('simple_fun', simple_fun_db)
 
 def info(bot):
   return 'Simple fun plugin v1.0.3'
