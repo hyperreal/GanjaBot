@@ -159,7 +159,7 @@ def command_slap(bot, room, nick, access_level, parameters, message):
     else:
       target = nick
   if random.getrandbits(1):
-    return '/me slaps %s with %s'%(target, random.choice(rndobjects))
+    return '/me slaps %s with %s'%(target, randomrndobject(bot, room))
   else:
     return '/me repeatedly slaps %s with %s and then %s '%(target, randomrndobject(bot, room), randomrndobject(bot, room))
 
