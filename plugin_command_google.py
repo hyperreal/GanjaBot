@@ -128,10 +128,10 @@ def command_translate(bot, room, nick, access_level, parameters, message):
 
 def load(bot):
   global langreg
-  bot.add_command('google', command_google, LEVEL_MEMBER, 'google')
-  bot.add_command('g', command_google, LEVEL_MEMBER, 'google')
-  bot.add_command('image', command_image, LEVEL_MEMBER, 'google')
-  bot.add_command('calc', command_calc, LEVEL_MEMBER, 'google')
+  bot.add_command('google', command_google, LEVEL_GUEST, 'google')
+  bot.add_command('g', command_google, LEVEL_GUEST, 'google')
+  bot.add_command('image', command_image, LEVEL_GUEST, 'google')
+  bot.add_command('calc', command_calc, LEVEL_GUEST, 'google')
   bot.add_command('translate', command_translate, LEVEL_GUEST, 'google')
   bot.add_command('tr', command_translate, LEVEL_GUEST, 'google')
   l = '|'.join(LANGCODES)
